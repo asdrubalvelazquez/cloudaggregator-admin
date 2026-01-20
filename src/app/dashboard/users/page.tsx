@@ -3,26 +3,44 @@ import { adminSupabaseServer } from "@/lib/adminSupabaseServer";
 interface User {
   id: string;
   email: string;
-  plan: string | null;
-  status: string | null;
   created_at: string;
 }
 
 export default async function UsersPage() {
   let users: User[] = [];
   let error: string | null = null;
+  let errorDetails: string | null = null;
 
   try {
-    const { data, error: fetchError } = await adminSupabaseServer
-      .from("users")
-      .select("id, email, plan, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(100);
+    // Using auth.admin.listUsers() with service role for auth users
+    const { data, error: fetchError } = await adminSupabaseServer.auth.admin.listUsers();
 
-    if (fetchError) throw fetchError;
-    users = data || [];
+    if (fetchError) {
+      console.error('[Server] Users fetch error:', {
+        message: fetchError.message,
+        status: fetchError.status,
+        name: fetchError.name
+      });
+      throw fetchError;
+    }
+    
+    users = data.users.map(user => ({
+      id: user.id,
+      email: user.email || 'No email',
+      created_at: user.created_at
+    }));
+    
+    console.log(`[Server] Successfully fetched ${users.length} users`);
   } catch (e) {
-    error = e instanceof Error ? e.message : "Failed to fetch users";
+    const err = e as any;
+    error = err.message || "Failed to fetch users";
+    errorDetails = JSON.stringify({
+      message: err.message,
+      status: err.status,
+      code: err.code,
+      details: err.details
+    }, null, 2);
+    console.error('[Server] Users page error:', errorDetails);
   }
 
   if (error) {
@@ -30,7 +48,10 @@ export default async function UsersPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Users</h1>
         <div className="mt-4 rounded-md bg-red-50 p-4">
-          <p className="text-sm text-red-800">{error}</p>
+          <p className="text-sm font-semibold text-red-800">Error: {error}</p>
+          {errorDetails && (
+            <pre className="mt-2 text-xs text-red-700 overflow-auto">{errorDetails}</pre>
+          )}
         </div>
       </div>
     );
@@ -47,12 +68,6 @@ export default async function UsersPage() {
                 Email
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Plan
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Created
               </th>
             </tr>
@@ -60,7 +75,7 @@ export default async function UsersPage() {
           <tbody className="divide-y divide-gray-200 bg-white">
             {users.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={2} className="px-6 py-4 text-center text-sm text-gray-500">
                   No users found
                 </td>
               </tr>
@@ -69,12 +84,6 @@ export default async function UsersPage() {
                 <tr key={user.id}>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                     {user.email}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {user.plan || "-"}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {user.status || "-"}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                     {new Date(user.created_at).toLocaleDateString()}
