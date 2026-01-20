@@ -16,11 +16,26 @@ export default function DashboardLayout({
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await adminSupabase.auth.getSession();
+      
       if (!data.session) {
         router.push("/login");
-      } else {
-        setLoading(false);
+        return;
       }
+
+      // Check if user is in admin allowlist
+      const { data: adminUser, error } = await adminSupabase
+        .from("admin_users")
+        .select("id")
+        .eq("id", data.session.user.id)
+        .single();
+
+      if (error || !adminUser) {
+        await adminSupabase.auth.signOut();
+        router.push("/login?error=not_authorized");
+        return;
+      }
+
+      setLoading(false);
     };
 
     checkSession();
