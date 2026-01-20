@@ -1,10 +1,39 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { adminSupabase } from "@/lib/adminSupabase";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await adminSupabase.auth.getSession();
+      if (!data.session) {
+        router.push("/login");
+      } else {
+        setLoading(false);
+      }
+    };
+
+    checkSession();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <aside className="w-64 bg-white border-r border-gray-200">
@@ -41,6 +70,12 @@ export default function DashboardLayout({
             className="block px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"
           >
             System
+          </Link>
+          <Link
+            href="/logout"
+            className="block px-4 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50"
+          >
+            Logout
           </Link>
         </nav>
       </aside>
